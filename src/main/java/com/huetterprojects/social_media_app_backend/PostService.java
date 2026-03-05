@@ -27,10 +27,10 @@ public class PostService   {
     private final S3PresignedUrlService s3PresignedUrlService;
 
     public  Post createPost(String title, String text, List<String> tags, MultipartFile mediaFile) throws IOException {
-        String fileName = storeFileInS3(mediaFile);
+
         PostCreator creator = PostCreator.builder()
                 .id("1")
-                .name("John Doe")
+                .name("Patrick Star")
                 .build();
         Post post = new Post();
         post.setTitle(title);
@@ -39,9 +39,12 @@ public class PostService   {
         post.setLikes(0);
         post.setCreator(creator);
         post.setCreatedAt(java.time.LocalDateTime.now());
-        post.setMediaUrl(fileName);
-        MediaType mediaType = getMediaType(mediaFile);
-        post.setMediaType(mediaType);
+        if(mediaFile != null && !mediaFile.isEmpty()){
+            String fileName = storeFileInS3(mediaFile);
+            post.setMediaUrl(fileName);
+            MediaType mediaType = getMediaType(mediaFile);
+            post.setMediaType(mediaType);
+        }
         return postRepository.save(post);
     }
 
