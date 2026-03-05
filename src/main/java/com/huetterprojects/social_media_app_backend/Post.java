@@ -2,21 +2,27 @@ package com.huetterprojects.social_media_app_backend;
 
 import lombok.Data;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
-@Document(collection = "posts")
+@Document("post")
 public class Post {
     @Id
     private String id;
     private String title;
     private String text;
-    private String tags;
-    private PostCreator creator;
-    private Integer likes;
-    private LocalDateTime createdAt;
+    private List<String> tags;
     private String mediaUrl;
+
+    @Transient
+    private String presignedUrl;
     private MediaType mediaType;
+    private LocalDateTime createdAt;
+    private int likes;
+    private PostCreator creator;
+
 }
