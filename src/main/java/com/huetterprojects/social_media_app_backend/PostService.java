@@ -88,16 +88,18 @@ public class PostService   {
 
     public Post updatePost(String id, String title, String text, List<String> tags, MultipartFile mediaFile) throws IOException {
         Post post = getPostById(id);
-        if(post.getMediaUrl()!=null){
-            s3Client.deleteObject(builder -> builder.bucket(AWSConfig.BUCKET_NAME).key(post.getMediaUrl()));
-        }
-        String fileName = storeFileInS3(mediaFile);
         post.setTitle(title);
         post.setText(text);
         post.setTags(tags);
-        post.setMediaUrl(fileName);
-        MediaType mediaType = getMediaType(mediaFile);
-        post.setMediaType(mediaType);
+        if(post.getMediaUrl()!=null && !post.getMediaUrl().isEmpty())
+        {
+            String fileName = storeFileInS3(mediaFile);
+            s3Client.deleteObject(builder -> builder.bucket(AWSConfig.BUCKET_NAME).key(post.getMediaUrl()));
+            post.setMediaUrl(fileName);
+            MediaType mediaType = getMediaType(mediaFile);
+            post.setMediaType(mediaType);
+        }
+
         return postRepository.save(post);
     }
 
