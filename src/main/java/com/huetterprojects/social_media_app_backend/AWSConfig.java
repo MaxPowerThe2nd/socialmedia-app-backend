@@ -12,13 +12,14 @@ import software.amazon.awssdk.services.s3.S3Client;
 @Configuration
 public class AWSConfig {
 
-    public static final String BUCKET_NAME = "social-media-app-codewiz";
+    public static final String BUCKET_NAME = "socialm-media-backend-storage";
 
     @Bean
     @ConditionalOnProperty(name = "aws.mock", havingValue = "false", matchIfMissing = true)
     public S3Client s3Client(
             @Value("${aws.s3.accessKey}") String accessKey,
-            @Value("${aws.s3.secretKey}") String secretKey
+            @Value("${aws.s3.secretKey}") String secretKey,
+            @Value("${aws.s3.region}") String region
     ) {
         AwsBasicCredentials credentials = AwsBasicCredentials.builder()
                 .accessKeyId(accessKey)
@@ -26,7 +27,7 @@ public class AWSConfig {
                 .build();
         return S3Client.builder()
                 .credentialsProvider(() -> credentials)
-                .region(Region.AP_SOUTHEAST_2)
+                .region(Region.of(region))
                 .build();
     }
     @Bean

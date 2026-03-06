@@ -55,7 +55,8 @@ public class PostService   {
 
     private String storeFileInS3(MultipartFile mediaFile) throws IOException {
         String fileName = UUID.randomUUID().toString()+" - "+ mediaFile.getOriginalFilename();
-        if(mediaFile !=null && !mediaFile.isEmpty()){
+        if(!mediaFile.isEmpty()){
+
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(AWSConfig.BUCKET_NAME)
                     .key(fileName)
