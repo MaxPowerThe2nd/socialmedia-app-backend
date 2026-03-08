@@ -20,7 +20,7 @@ public class Post {
 
     @Transient
     private String presignedUrl;
-    private MediaType mediaType;
+    private AWSMediaType AWSMediaType;
     private LocalDateTime createdAt;
     private int likes;
     private PostCreator creator;

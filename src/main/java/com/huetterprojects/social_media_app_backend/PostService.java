@@ -3,10 +3,8 @@ package com.huetterprojects.social_media_app_backend;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,6 +13,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -26,31 +25,40 @@ public class PostService   {
     private final S3Client s3Client;
     private final S3PresignedUrlService s3PresignedUrlService;
 
-    public  Post createPost(String title, String text, List<String> tags, MultipartFile mediaFile) throws IOException {
+    public Post createPost(PostRequest request, MultipartFile mediaFile) throws IOException {
+
+        String s3Key = null;
+        AWSMediaType mediaType = null;
+
+        if (mediaFile != null && !mediaFile.isEmpty()) {
+            // Sicherer Zugriff auf AWS-Funktionen
+            s3Key = storeFileInS3(mediaFile);
+            mediaType = getMediaType(mediaFile);
+        }
 
         PostCreator creator = PostCreator.builder()
-                .id("1")
+                .id("user-123")
                 .name("Patrick Star")
                 .build();
+
         Post post = new Post();
-        post.setTitle(title);
-        post.setText(text);
-        post.setTags(tags);
-        post.setLikes(0);
+        post.setTitle(request.title());
+        post.setText(request.text());
+        post.setTags(request.tags() != null ? request.tags() : List.of());
+
+        post.setMediaUrl(s3Key);
+        post.setAWSMediaType(mediaType);
+
         post.setCreator(creator);
-        post.setCreatedAt(java.time.LocalDateTime.now());
-        if(mediaFile != null && !mediaFile.isEmpty()){
-            String fileName = storeFileInS3(mediaFile);
-            post.setMediaUrl(fileName);
-            MediaType mediaType = getMediaType(mediaFile);
-            post.setMediaType(mediaType);
-        }
+        post.setCreatedAt(LocalDateTime.now());
+        post.setLikes(0);
+
         return postRepository.save(post);
     }
 
-    private static MediaType getMediaType(MultipartFile mediaFile) {
-        return Objects.requireNonNull(mediaFile.getContentType()).startsWith("video/") ? MediaType.VIDEO :
-                (mediaFile.getContentType().startsWith("image/") ? MediaType.IMAGE : null);
+    private static AWSMediaType getMediaType(MultipartFile mediaFile) {
+        return Objects.requireNonNull(mediaFile.getContentType()).startsWith("video/") ? AWSMediaType.VIDEO :
+                (mediaFile.getContentType().startsWith("image/") ? AWSMediaType.IMAGE : null);
     }
 
     private String storeFileInS3(MultipartFile mediaFile) throws IOException {
@@ -66,19 +74,24 @@ public class PostService   {
         return fileName;
     }
 
-    public Page<Post> getAllPosts(int page, int size,String searchCriteria) {
+    public Page<Post> getAllPosts(PostSearchRequest request) {
         Sort sort = Sort.by(Sort.Direction.DESC, "id");
-        var postList =
-                StringUtils.hasText(searchCriteria)? postRepository.searchByText(searchCriteria,PageRequest.of(page, size, sort))
-                        :postRepository.findAll(PageRequest.of(page, size, sort));
+
+        // Zugriff erfolgt über die Record-Methoden page(), size() und searchCriteria()
+        Pageable pageable = PageRequest.of(request.page(), request.size(), sort);
+
+        var postList = StringUtils.hasText(request.searchCriteria())
+                ? postRepository.searchByText(request.searchCriteria(), pageable)
+                : postRepository.findAll(pageable);
+
         postList.forEach(post -> {
-            if(post.getMediaUrl()!=null) {
+            if (post.getMediaUrl() != null) {
                 post.setPresignedUrl(s3PresignedUrlService.generatePresignedUrl(post.getMediaUrl()));
             }
         });
+
         return postList;
     }
-
     public Post getPostById(String id) {
         var post =  postRepository.findById(id).orElseThrow(() -> new RuntimeException("Post not found"));
         if(post.getMediaUrl()!=null) {
@@ -87,20 +100,24 @@ public class PostService   {
         return post;
     }
 
-    public Post updatePost(String id, String title, String text, List<String> tags, MultipartFile mediaFile) throws IOException {
+    public Post updatePost(String id, PostRequest request, MultipartFile mediaFile) throws IOException {
         Post post = getPostById(id);
-        post.setTitle(title);
-        post.setText(text);
-        post.setTags(tags);
-        if(post.getMediaUrl()!=null && !post.getMediaUrl().isEmpty())
-        {
-            String fileName = storeFileInS3(mediaFile);
-            s3Client.deleteObject(builder -> builder.bucket(AWSConfig.BUCKET_NAME).key(post.getMediaUrl()));
-            post.setMediaUrl(fileName);
-            MediaType mediaType = getMediaType(mediaFile);
-            post.setMediaType(mediaType);
-        }
+        post.setTitle(request.title());
+        post.setText(request.text());
+        post.setTags(request.tags());
 
+        if (mediaFile != null && !mediaFile.isEmpty()) {
+            if (post.getMediaUrl() != null && !post.getMediaUrl().isEmpty()) {
+                s3Client.deleteObject(builder ->
+                        builder.bucket(AWSConfig.BUCKET_NAME).key(post.getMediaUrl()));
+            }
+
+            String fileName = storeFileInS3(mediaFile);
+            post.setMediaUrl(fileName);
+
+            AWSMediaType mediaType = getMediaType(mediaFile);
+            post.setAWSMediaType(mediaType);
+        }
         return postRepository.save(post);
     }
 
