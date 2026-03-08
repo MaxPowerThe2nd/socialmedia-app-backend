@@ -7,6 +7,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,16 +23,18 @@ public class PostController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Post> createPost(
-            @RequestPart("data") @Valid PostRequest request, // Spring mappt das JSON aus dem "data"-Teil
-            @RequestPart("file") MultipartFile file           // Spring nimmt die Datei aus dem "file"-Teil
+            @RequestPart("data") @Valid PostRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) throws IOException {
 
-        // Der Controller validiert nur kurz und reicht dann alles an den Service weiter
-        Post savedPost = postService.createPost(request, file);
+        if (userDetails == null) {
+            return new ResponseEntity<>(postService.createPost(request, file, "dev-test-id"), HttpStatus.CREATED);
+        }
+        Post savedPost = postService.createPost(request, file, userDetails.userId());
 
         return new ResponseEntity<>(savedPost, HttpStatus.CREATED);
     }
-
 
 
     @GetMapping

@@ -22,23 +22,25 @@ import java.util.UUID;
 @AllArgsConstructor
 public class PostService   {
     private final PostRepository postRepository;
+    private final UserRepository userRepository;
     private final S3Client s3Client;
     private final S3PresignedUrlService s3PresignedUrlService;
 
-    public Post createPost(PostRequest request, MultipartFile mediaFile) throws IOException {
+    public Post createPost(PostRequest request, MultipartFile mediaFile, String userId) throws IOException {
+        // 1. Den echten User aus der Datenbank laden
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User mit ID " + userId + " nicht gefunden"));
 
         String s3Key = null;
         AWSMediaType mediaType = null;
-
         if (mediaFile != null && !mediaFile.isEmpty()) {
-            // Sicherer Zugriff auf AWS-Funktionen
             s3Key = storeFileInS3(mediaFile);
             mediaType = getMediaType(mediaFile);
         }
 
         PostCreator creator = PostCreator.builder()
-                .id("user-123")
-                .name("Patrick Star")
+                .id(user.getId())
+                .name(user.getUsername())
                 .build();
 
         Post post = new Post();
